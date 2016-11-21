@@ -1,27 +1,31 @@
 #-*- coding:utf-8 -*-
 
-# import the main window object (mw) from aqt
+
 # We're going to add a menu item below. First we want to create a function to
 # be called when the menu item is activated.
 import os
+# import the main window object (mw) from aqt
 import re
 import sys
 import urllib2
 import xml.etree.ElementTree
+from collections import defaultdict
 from StringIO import StringIO
 
 import aqt
-from aqt import mw
-from aqt.qt import *
 from anki.hooks import addHook, runHook, wrap
 from anki.importing import TextImporter
+from aqt import mw
 from aqt.addcards import AddCards
 from aqt.modelchooser import ModelChooser
+from aqt.qt import *
 from aqt.studydeck import StudyDeck
 from aqt.toolbar import Toolbar
 from aqt.utils import shortcut, showInfo
 # import trackback
 from mdict.mdict_query import IndexBuilder
+
+
 # from Queue import Queue
 
 
@@ -201,7 +205,7 @@ def my_setupButtons(self):
 def query(self):
     for field in self.editor.note.fields:
         field = ''
-    self.query_youdao()
+    # self.query_youdao()
     self.query_mdict()
     self.editor.currentField = 0
     self.editor.loadNote()
@@ -276,24 +280,34 @@ def convert_media_path(html):
 
 
 def update_field(result_text, note):
-    if len(note.fields) < 15:
+    if len(note.fields) < 18:
         showInfo("Template Error, Mdx!")
         return
     result_text = convert_media_path(result_text)
-    if 'href="_collinsEC.css"' in result_text:
+    if 'color="darkgreen"' in result_text:
+        # Langenscheidt Collins e-Großwörterbuch Englisch(Deutsch-Englisch)
+        # Langenscheidt Collins e-Großwörterbuch Englisch(Englisch-Deutsch)
         note.fields[8] = result_text
-    elif 'href="_CollinsEN.css"' in result_text:
+    elif 'color="fuchsia"' in result_text:
+        # PONS Wörterbuch für Schule und Studium Deutsch-Englisch.mdx
         note.fields[9] = result_text
-    if 'href="_O8C.css"' in result_text:
+    elif 'color="mediumseagreen"' in result_text:
+        # PONS Wörterbuch Englisch Premium(Deutsch-Englisch)
         note.fields[10] = result_text
-    elif 'href="_ODE.css"' in result_text:  # ok
+    if 'href="_collinsEC.css"' in result_text:
         note.fields[11] = result_text
-    elif 'href="_MacmillanEnEn.css"' in result_text:  # ok
+    elif 'href="_CollinsEN.css"' in result_text:
         note.fields[12] = result_text
-    elif 'href="_LDOCE6.css"' in result_text:  # ok
+    if 'href="_O8C.css"' in result_text:
         note.fields[13] = result_text
-    elif 'href="_MWU.css"' in result_text:  # ok
+    elif 'href="_ODE.css"' in result_text:  # ok
         note.fields[14] = result_text
+    elif 'href="_MacmillanEnEn.css"' in result_text:  # ok
+        note.fields[15] = result_text
+    elif 'href="_LDOCE6.css"' in result_text:  # ok
+        note.fields[16] = result_text
+    elif 'href="_MWU.css"' in result_text:  # ok
+        note.fields[17] = result_text
     else:
         pass
 
@@ -313,15 +327,7 @@ action.triggered.connect(set_options)
 mw.form.menuTools.addAction(action)
 
 
-from collections import defaultdict
-
-deck_name = u"test"
-note_type_name = u"MultiDicts"
-
-expsdict = defaultdict(str)
-
-
-def query_youdao(word):
+def query_youdao2(word):
     d = defaultdict(str)
     result = urllib2.urlopen(
         "http://dict.youdao.com/fsearch?client=deskdict&keyfrom=chrome.extension&pos=-1&doctype=xml&xmlVersion=3.2&dogVersion=1.0&vendor=unknown&appVer=3.1.17.4208&le=eng&q=%s" % word, timeout=5).read()
@@ -334,7 +340,7 @@ def query_youdao(word):
     return d
 
 
-def query_mdict(word):
+def query_mdict2(word):
     d = defaultdict(str)
     result = None
     if use_local:
@@ -343,7 +349,7 @@ def query_mdict(word):
                 index_mdx()
             result = index_builder.mdx_lookup(word)
             if result:
-                d = update_field(result[0])
+                d = update_field2(result[0])
         except AssertionError as e:
             # no valid mdict file found.
             pass
@@ -353,14 +359,14 @@ def query_mdict(word):
                 serveraddr + r'/' + word)
             result2 = req.read()
             if result2:
-                d.update(update_field(result2))
+                d.update(update_field2(result2))
         except:
             # server error
             pass
     return d
 
 
-def update_field(result_text):
+def update_field2(result_text):
     d = defaultdict(str)
     result_text = convert_media_path(result_text)
     if 'href="_collinsEC.css"' in result_text:
@@ -377,6 +383,16 @@ def update_field(result_text):
         d[u'朗文当代解释'] = result_text
     elif 'href="_MWU.css"' in result_text:  # ok
         d[u'韦氏大学解释'] = result_text
+    elif 'color="darkgreen"' in result_text:
+        # Langenscheidt Collins e-Großwörterbuch Englisch(Deutsch-Englisch)
+        # Langenscheidt Collins e-Großwörterbuch Englisch(Englisch-Deutsch)
+        d[u'Langenscheidt-Collins-e-Großwörterbuch'] = result_text
+    elif 'color="fuchsia"' in result_text:
+        # PONS Wörterbuch für Schule und Studium Deutsch-Englisch.mdx
+       d[u'PONS-Wörterbuch-für-Schule-und-Studium'] = result_text
+    elif 'color="mediumseagreen"' in result_text:
+        # PONS Wörterbuch Englisch Premium(Deutsch-Englisch)
+        d[u'PONS-Wörterbuch-Englisch-Premium'] = result_text
     else:
         pass
     return d
@@ -470,7 +486,7 @@ class BatchQueryer(QThread):
                 if m:
                     word = m.groups()[0]
                 # d1 = query_youdao(word)
-                d2 = query_mdict(word)
+                d2 = query_mdict2(word)
                 d[u'英语单词'] = unicode(word)
                 d[u'英语例句'] = unicode(sentence)
                 # d.update(d1)
